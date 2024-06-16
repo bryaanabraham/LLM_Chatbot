@@ -1,0 +1,13 @@
+streamlit
+pypdf
+langchain
+torch
+accelerate
+bitsandbytes
+transformers
+sentence_transformers
+faiss_cpu
+streamlit-chat
+langchain-community
+ctransformers
+langchain-huggingface
