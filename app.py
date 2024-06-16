@@ -6,11 +6,12 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain_community.llms import CTransformers
 from langchain.chains import ConversationalRetrievalChain
+from transformers import AutoTokenizer
 
 DB_FAISS_PATH = 'vectorstore/db_faiss'
 MAX_TOKENS = 512
+tokenizer = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
-# Load the locally downloaded model with GPU support
 def load_llm():
     try:
         llm = CTransformers(
@@ -25,11 +26,13 @@ def load_llm():
         st.error(f"Error loading model: {e}")
         return None
 
+def count_tokens(text):
+    return len(tokenizer.encode(text, add_special_tokens=False))
+
 def trim_query(query, max_tokens=MAX_TOKENS):
-    # Tokenize the input query and trim it to fit within the maximum token limit
-    query_tokens = query.split()
+    query_tokens = tokenizer.encode(query, add_special_tokens=False)
     if len(query_tokens) > max_tokens:
-        return ' '.join(query_tokens[:max_tokens])
+        return tokenizer.decode(query_tokens[:max_tokens])
     return query
 
 st.title("Llama Chatbot")
@@ -49,6 +52,7 @@ if uploaded_file:
 
         db = FAISS.from_documents(data, embeddings)
         db.save_local(DB_FAISS_PATH)
+        
         llm = load_llm()
         
         if llm:
@@ -57,10 +61,29 @@ if uploaded_file:
             def conversational_chat(query):
                 # Trim the query to fit within the token limit
                 trimmed_query = trim_query(query)
-                result = chain({"question": trimmed_query, "chat_history": []})
-                st.session_state['history'].append((query, result["answer"]))
-                return result["answer"]
-            
+                token_count = count_tokens(trimmed_query)
+                st.write(f"Query: {query}")
+                st.write(f"Token count of trimmed query: {token_count}")
+                if token_count > MAX_TOKENS:
+                    st.error(f"Query is too long even after trimming: {token_count} tokens")
+                    return "Your query is too long, please shorten it."
+
+                # Directly call the model for debugging
+                try:
+                    response = llm(trimmed_query)
+                    st.write(f"Response: {response}")
+                except Exception as e:
+                    st.error(f"Error during model call: {e}")
+
+                # Check the full chain processing
+                try:
+                    result = chain({"question": trimmed_query, "chat_history": []})
+                    st.session_state['history'].append((query, result["answer"]))
+                    return result["answer"]
+                except Exception as e:
+                    st.error(f"Error during chain processing: {e}")
+                    return "There was an error processing your query."
+
             if 'history' not in st.session_state:
                 st.session_state['history'] = []
 
