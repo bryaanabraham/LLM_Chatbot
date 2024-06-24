@@ -2,3 +2,5 @@ Langchain
 test.py
 llama-2-7b-chat.ggmlv3.q2_K.bin
 llama-2-7b-chat.ggmlv3.q4_0.bin
+app1.py
+installed_packages.txt
